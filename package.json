@@ -1,7 +1,7 @@
 {
-  "name": "js-visualiser",
+  "name": "js-visualizer",
   "version": "0.0.1",
-  "description": "Visualiser built entirely using Javascript",
+  "description": " Win-amp bar like Visualizer built entirely using Javascript",
   "main": "app.js",
   "scripts": {
     "test": "node app.js"
