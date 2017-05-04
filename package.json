@@ -1,0 +1,11 @@
+{
+  "name": "js-visualiser",
+  "version": "0.0.1",
+  "description": "Visualiser built entirely using Javascript",
+  "main": "app.js",
+  "scripts": {
+    "test": "node app.js"
+  },
+  "author": "Paoda",
+  "license": "MIT"
+}
