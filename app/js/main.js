@@ -1,39 +1,69 @@
 var userAudio = document.getElementById('openFile');
 var arrayBuffer;
 
+var audio = new Audio();
+
+var audioCtx = new AudioContext();
+var analyser = audioCtx.createAnalyser();
+
+window.addEventListener('load', function (e) {
+    var source = audioCtx.createMediaElementSource(audio);
+    source.connect(analyser);
+    analyser.connect(audioCtx.destination);
+
+    visualize();
+})
+
 userAudio.onchange = function (e) { //Converts an uploaded file into an Array Buffer
-    files = this.files;
-    
-    var reader = new FileReader();
+    files = this.files[0]; //This is all literally so that I can bypass CORS
 
-    reader.onload = function(e) {
-        arrayBuffer = reader.result;
-        console.log(reader.result);
-    }
-    reader.readAsArrayBuffer(files[0]);
-
-    setupVisualizer();
+    audio.src = window.URL.createObjectURL(files);
+    audio.play();
 }
 
-function setupVisualizer() {
-    if (!window.AudioContext) {
-        if (!window.webkitAudioContext) {
-            alert('No Audio Context Found.');
-        }
-        window.AudioContext = window.webkitAudioContext;
-    }
-    var audioCtx = new AudioContext();
-    var audioBuffer;
-    
-    var sourceNode = audioCtx.createBufferSource();
-    sourceNode.connect(audioCtx.destination);
-    console.log(audioCtx.destination);
+var canvas = document.querySelector('.visualizer');
+var canvasCtx = canvas.getContext("2d");
 
-    audioCtx.decodeAudioData(arrayBuffer, function(buffer) {
-        sourceNode.buffer = buffer;
-        sourceNode.start(0);
-    }, function(e) {
-        throw e;
-    });
-    
+var intendedWidth = document.querySelector('.wrapper').clientWidth;
+canvas.setAttribute('width', intendedWidth);
+
+var drawVisual;
+
+function visualize() {
+    WIDTH = canvas.width;
+    HEIGHT = canvas.height;
+    console.log("Width: " + WIDTH);
+    console.log("Height: " + HEIGHT)
+
+    analyser.fftSize = 256;
+    var bufferLength = analyser.frequencyBinCount;
+    console.log(bufferLength);
+    var dataArray = new Uint8Array(bufferLength);
+
+    canvasCtx.clearRect(0, 0, WIDTH, HEIGHT);
+
+    function draw() {
+        drawVisual = requestAnimationFrame(draw);
+
+        analyser.getByteFrequencyData(dataArray);
+
+        canvasCtx.fillStyle = 'rgb(255, 255, 255)';
+        canvasCtx.fillRect(0, 0, WIDTH, HEIGHT );
+
+        var barWidth = (WIDTH / bufferLength) * 2.5;
+        var barHeight;
+        var x = 0;
+
+        for (var i = 0; i < bufferLength; i++) {
+            barHeight = dataArray[i];
+
+
+            canvasCtx.fillStyle = 'rgb(0,0,0)';
+            canvasCtx.fillRect(x, HEIGHT - barHeight / 2, barWidth, barHeight / 2);
+
+            x += barWidth + 1;
+        }
+    };
+
+    draw();
 }
