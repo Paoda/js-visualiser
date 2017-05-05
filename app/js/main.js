@@ -58,7 +58,7 @@ function visualize() {
             barHeight = dataArray[i];
 
 
-            canvasCtx.fillStyle = 'rgb(0,0,0)';
+            canvasCtx.fillStyle = 'rgb(75,0,130)';
             canvasCtx.fillRect(x, HEIGHT - barHeight / 2, barWidth, barHeight / 2);
 
             x += barWidth + 1;
