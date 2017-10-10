@@ -4,8 +4,12 @@
   "description": " Win-amp bar like Visualizer built entirely using Javascript",
   "main": "app.js",
   "scripts": {
-    "test": "node app.js"
+    "start": "node app.js"
   },
   "author": "Paoda",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.16.2"
+  },
+  "devDependencies": {}
 }
