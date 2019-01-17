@@ -1,192 +1,186 @@
-'use strict';
+"use strict";
 
-let bgImage;
-let result = window.location.href.match(/(\?|\&)[a-z]*=\d/gi); //accounts for ?var={num} and &var={num}
-if (result) {
-    if (result[0] === '?weeb=1') bgImage = true;
-}
+const audio = new Audio();
+const audioCtx = new AudioContext();
+const analyser = audioCtx.createAnalyser();
+const bars = 200;
+let isPlaying = false;
+let lessJumpy = true;
 
-var audio = new Audio();
-var audioCtx = new AudioContext();
-var analyser = audioCtx.createAnalyser();
+analyser.fftSize = 4096;
 
-window.addEventListener('load', function (e) {
-    var source = audioCtx.createMediaElementSource(audio);
-    source.connect(analyser);
-    analyser.connect(audioCtx.destination);
-    visualize();
-});
-window.addEventListener('resize', resize, false);
-
-var canvas = document.createElement('canvas');
-canvas.id = 'visualiser';
+const canvas = document.createElement("canvas");
+const canvasCtx = canvas.getContext("2d");
+canvas.id = "visualiser";
 canvas.draggable = true;
 document.body.appendChild(canvas);
 resize();
 
+// Chrome 71 Requires that A User Must Interact with the 
+// Browser Before AudioContext can work.
+// As such we call context.resume() once we know the user has
+// interacted with the browser.
+
+document.addEventListener("click", () => audioCtx.resume().then(() => console.log("Audio Context succesfully resumed.")))
+
+window.addEventListener("load", () => {
+  const source = audioCtx.createMediaElementSource(audio);
+  source.connect(analyser);
+  analyser.connect(audioCtx.destination);
+  visualize();
+});
+
+window.addEventListener("resize", resize, false);
+
+
 function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
 }
 
 //Canvas Events START
 canvas.onclick = () => {
-    if (lessJumpy) lessJumpy = false;
-    else lessJumpy = true;
+  lessJumpy = !lessJumpy;
 };
 
-canvas.ondragover = (e) => {
-    e.preventDefault();
-};
-canvas.ondrop = (e) => {
-    e.preventDefault();
+canvas.ondragover = e => e.preventDefault();
 
-    let dt = e.dataTransfer;
+canvas.ondrop = e => {
+  e.preventDefault();
 
-    if (dt.items) {
-        for (let i = 0; i < dt.items.length; i++) {
-            if (dt.items[i].kind === 'file') {
-                let file = dt.items[i].getAsFile();
-                
-                if(file.type.match(/audio/gi)) {
-                    audio.src = window.URL.createObjectURL(file);
-                    audio.play();
-                } else throw TypeError('File Uploaded was not an Audio File');
-            } else throw TypeError('File Uploaded was not an Audio File');
-        }
-    } else {
-        if(dt.files.length > 1) {
-            console.log('Not a Item');
-            let file = dt.files[0];
+  let dt = e.dataTransfer;
 
-            if(file.type.match(/audio/gi)) {
-                audio.src = window.URL.createObjectURL(file);
-                audio.play();
-            } else throw TypeError('File Uploaded was not an Audio File');
-        }
+  if (dt.items) {
+    for (let i = 0; i < dt.items.length; i++) {
+      if (dt.items[i].kind === "file") {
+        let file = dt.items[i].getAsFile();
+
+        if (file.type.match(/audio/gi)) {
+          audio.src = window.URL.createObjectURL(file);
+          audio.play();
+          isPlaying = true;
+        } else throw TypeError("File Uploaded was not an Audio File");
+      } else throw TypeError("File Uploaded was not an Audio File");
     }
-};
-canvas.ondragend = (e) => {
-    let dt = e.dataTransfer;
-    if(dt.items) {
-        for (let i = 0; i < dt.items.length; i++) {
-            dt.items.remove(i);
-        }
-    } else {
-        dt.clearData();
+  } else {
+    if (dt.files.length > 1) {
+      console.log("Not a Item");
+      let file = dt.files[0];
+
+      if (file.type.match(/audio/gi)) {
+        audio.src = window.URL.createObjectURL(file);
+        audio.play();
+        isPlaying = true;
+      } else throw TypeError("File Uploaded was not an Audio File");
     }
+  }
 };
 
-canvas.ondblclick = (e) => {
-    e.preventDefault();
-    let input = document.createElement('input');
-    input.type = 'file';
-
-    let event = document.createEvent('MouseEvents');
-    event.initEvent('click', true, false);
-    input.dispatchEvent(event);
-
-    input.onchange = (e) => {
-        let file = input.files[0];
-
-        if(file.type.match(/audio/gi)) {
-            audio.src = window.URL.createObjectURL(file);
-            audio.play();
-        } else throw TypeError('File Uploaded was not an Audio File');
-    };
+canvas.ondragend = e => {
+  let dt = e.dataTransfer;
+  if (dt.items) {
+    for (let i = 0; i < dt.items.length; i++) {
+      dt.items.remove(i);
+    }
+  } else {
+    dt.clearData();
+  }
 };
+
+canvas.ondblclick = e => {
+  e.preventDefault();
+  let input = document.createElement("input");
+  input.type = "file";
+
+  let event = document.createEvent("MouseEvents");
+  event.initEvent("click", true, false);
+  input.dispatchEvent(event);
+
+  input.onchange = e => {
+    let file = input.files[0];
+
+    if (file.type.match(/audio/gi)) {
+      audio.src = window.URL.createObjectURL(file);
+      audio.play();
+      isPlaying = true;
+    } else throw TypeError("File Uploaded was not an Audio File");
+  };
+};
+
 //Canvas Events END
-var lessJumpy = true;
-var canvasCtx = canvas.getContext('2d');
-
-var bars = 100;
-var alpha = '1';
-analyser.fftSize = 4096;
-let num = 0;
-let average= false;
 
 function visualize() {
-    let defaultWidth = canvas.width;
-    let defaultHeight = canvas.height;
-    var bufferLength = analyser.frequencyBinCount;
-    console.log('Length of Buffer: ' + bufferLength);
-    var dataArray = new Uint8Array(bufferLength);
+  const bufferLength = analyser.frequencyBinCount;
+  console.log(bufferLength);
+  const dataArray = new Uint8Array(bufferLength);
+  canvasCtx.font = "25px Consolas";
+  let dataPerBar = ~~(dataArray.length / bars);
+  if (dataPerBar < 1) dataPerBar = 1;
+  const barWidth = ~~(canvas.width / bars);
+  let avgFrameTime = [];
 
-    if (bgImage) {
-        var background = new Image();
-        //background.src = 'https://i.imgur.com/xDCaIWm.png';
-        background.src = 'https://i.imgur.com/F5jwToz.jpg';
-    }
+  function draw() {
+    const t1 = performance.now();
 
-    //Size of dataArray and bufferLength is the same.
+    canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
 
-    let perGroup = ~~(bufferLength / bars); //2048 / 100 = 20.48 floor that and you should have 20 values in a group.
-    console.log('Items per group ' + perGroup);
-    let num = 0;
-    function draw() {
-        let WIDTH = canvas.width;
-        let HEIGHT = canvas.height;
+    const drawVisual = requestAnimationFrame(draw);
 
-        canvasCtx.clearRect(0, 0, WIDTH, HEIGHT);
+    analyser.getByteFrequencyData(dataArray);
 
-        let drawVisual = requestAnimationFrame(draw);
+    canvasCtx.fillStyle = "#F1F0FF";
+    canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-        analyser.getByteFrequencyData(dataArray);
+    let barHeight, x = 0, curve = 1, curveIndex = 1.1, index = 0;
 
-        if (bgImage) {
-            //canvasCtx.drawImage(background,0,0,background.naturalWidth - canvas.width,background.naturalHeight - canvas.height);
-            canvasCtx.drawImage(background, 0,0, WIDTH, HEIGHT);
-        }
-        else {
-            //canvasCtx.fillStyle = 'rgba(255, 255, 255,' + alpha + ')';
-            canvasCtx.fillStyle = '#F1F0FF';
-            canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
-        }
-
-        var barWidth = (WIDTH / bars);
-        var barHeight;
-        var x = 0;
-
-        for (var i = 0; i < bars; i++) {
-            let avg = 0;
-            if (average) {
-                let dividend = perGroup;
-                for (let r = 0; r < perGroup; r++) {
-                    if (dataArray[num] === 0) {
-                        //This bar never happened!
-                        if (!audio.paused) {
-                            //if (i < 0) i--;
-                            if (r < 0) r--;
-                            num++;
-                            //zero = true;
-
-                        } else {
-                            break;
-                        }
-                    } else avg += dataArray[num];
-                    num++;
-                    if (num > bufferLength && i === bars - 1) num = 0;
-                }
-                avg = parseInt(avg / dividend);
+    for (var i = 0; i < bars; i++) {
+      // if (i == 0) debugger;
+      let res = average(dataArray, index, dataPerBar, curve);
+      index = res[1];
+      curve = Math.log10(curveIndex);
+      curveIndex++;
+      
+      barHeight = res[0]
+      if (!lessJumpy) barHeight *= 2;
             
-            barHeight = avg;
-            } else {
-                barHeight = dataArray[i];
-            }
-            if (bgImage) canvasCtx.fillStyle = 'rgb(' + (barHeight + 100) + ',' + 85 + ',' + 197 + ')';
-            else canvasCtx.fillStyle = 'rgb(75,0,' + (barHeight + 100) + ')';
-            
-            if (!lessJumpy) barHeight = ~~(barHeight * 1.5);
+      if (barHeight > canvas.height) canvas.height / barHeight;
 
-            if (bgImage) {
-                canvasCtx.fillRect(x, (HEIGHT /2) - barHeight, barWidth, barHeight);
-                if (x <= ~~(WIDTH/1.5)) x +=  barWidth + 2;
-                else break;
-            } else {
-                canvasCtx.fillRect(x, HEIGHT - barHeight, barWidth, barHeight);
-               x += barWidth + 2;
-            }
-        }
+      canvasCtx.fillStyle = "rgb(75,0," + (barHeight + 100) + ")";
+      
+      if (i == 1) canvasCtx.fillText(`Bar #2 Value: ${res[0]}`, 30, 50)
+
+      canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+      x += barWidth + 2;
     }
-    draw();
+    canvasCtx.fillStyle = "#000000";
+
+
+    if (isPlaying) {
+      if (avgFrameTime.length > 100) avgFrameTime = [];
+      avgFrameTime.push(performance.now() - t1);
+      
+      let fps = ~~(1000 / (avgFrameTime.reduce((a, b) => a + b) / avgFrameTime.length));
+      canvasCtx.fillText(`${fps}fps`, 30, 30);
+    } else {
+      let startMsg = "Drag & Drop or Double Click to Start!"
+      canvasCtx.fillText(startMsg, (canvas.width / 2) - canvasCtx.measureText(startMsg).width, canvas.height / 2)
+    }
+  }
+  draw();
+}
+
+function average(dataArr, index, dataPerBar, curve) {
+  const start = index;
+  let total = 0;
+  while (index < start + dataPerBar) {
+    total += (dataArr[index] / curve);
+    index++;
+  }
+
+  return [total / dataPerBar, index];
 }
