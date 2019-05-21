@@ -1,11 +1,18 @@
 "use strict";
 
+// Style Constants
+const canvasFont = "25px Consolas";
+const bgColour = "#F1F0FF"
+const curveEnabled = true;
+let isPlaying = false;
+let lessJumpy = true;
+
+
+
 const audio = new Audio();
 const audioCtx = new AudioContext();
 const analyser = audioCtx.createAnalyser();
-const bars = 200;
-let isPlaying = false;
-let lessJumpy = true;
+const bars = 100;
 
 analyser.fftSize = 4096;
 
@@ -51,6 +58,7 @@ canvas.onclick = () => {
 canvas.ondragover = e => e.preventDefault();
 
 canvas.ondrop = e => {
+  const notAudioText = "File Uploaded was not an Audio File";
   e.preventDefault();
 
   let dt = e.dataTransfer;
@@ -64,8 +72,8 @@ canvas.ondrop = e => {
           audio.src = window.URL.createObjectURL(file);
           audio.play();
           isPlaying = true;
-        } else throw TypeError("File Uploaded was not an Audio File");
-      } else throw TypeError("File Uploaded was not an Audio File");
+        } else throw TypeError(notAudioText);
+      } else throw TypeError(notAudioText);
     }
   } else {
     if (dt.files.length > 1) {
@@ -76,7 +84,7 @@ canvas.ondrop = e => {
         audio.src = window.URL.createObjectURL(file);
         audio.play();
         isPlaying = true;
-      } else throw TypeError("File Uploaded was not an Audio File");
+      } else throw TypeError(notAudioText);
     }
   }
 };
@@ -118,7 +126,7 @@ function visualize() {
   const bufferLength = analyser.frequencyBinCount;
   console.log(bufferLength);
   const dataArray = new Uint8Array(bufferLength);
-  canvasCtx.font = "25px Consolas";
+  canvasCtx.font = canvasFont;
   let dataPerBar = ~~(dataArray.length / bars);
   if (dataPerBar < 1) dataPerBar = 1;
   const barWidth = ~~(canvas.width / bars);
@@ -128,30 +136,31 @@ function visualize() {
     const t1 = performance.now();
 
     canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
-
+    
     const drawVisual = requestAnimationFrame(draw);
-
+    
     analyser.getByteFrequencyData(dataArray);
-
-    canvasCtx.fillStyle = "#F1F0FF";
+    
+    canvasCtx.fillStyle = bgColour;
     canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
-
-    let barHeight, x = 0, curve = 1, curveIndex = 1.1, index = 0;
+    
+    let barHeight, x = 0, index = 0;
+    
+    const applyCurve = val => (curveEnabled) ? Math.pow(Math.E, val) : val;
 
     for (var i = 0; i < bars; i++) {
       // if (i == 0) debugger;
-      let res = average(dataArray, index, dataPerBar, curve);
+      let res = average(dataArray, index, dataPerBar);
       index = res[1];
-      curve = Math.log10(curveIndex);
-      curveIndex++;
-      
-      barHeight = res[0]
-      if (!lessJumpy) barHeight *= 2;
-            
+
+      barHeight = applyCurve(res[0]);
+
+      if (!lessJumpy) barHeight = barHeight * 0.5
+
       if (barHeight > canvas.height) canvas.height / barHeight;
 
       canvasCtx.fillStyle = "rgb(75,0," + (barHeight + 100) + ")";
-      
+
       if (i == 1) canvasCtx.fillText(`Bar #2 Value: ${res[0]}`, 30, 50)
 
       canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
@@ -163,7 +172,7 @@ function visualize() {
     if (isPlaying) {
       if (avgFrameTime.length > 100) avgFrameTime = [];
       avgFrameTime.push(performance.now() - t1);
-      
+
       let fps = ~~(1000 / (avgFrameTime.reduce((a, b) => a + b) / avgFrameTime.length));
       canvasCtx.fillText(`${fps}fps`, 30, 30);
     } else {
@@ -174,13 +183,16 @@ function visualize() {
   draw();
 }
 
-function average(dataArr, index, dataPerBar, curve) {
+function average(dataArr, index, dataPerBar) {
+
+
   const start = index;
   let total = 0;
   while (index < start + dataPerBar) {
-    total += (dataArr[index] / curve);
+    total += dataArr[index];
     index++;
   }
 
   return [total / dataPerBar, index];
 }
+
